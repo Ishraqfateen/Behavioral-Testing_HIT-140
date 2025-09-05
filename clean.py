@@ -1,105 +1,73 @@
-# clean_merged_simple.py
-# Cleans merged_long.csv and writes merged_clean.csv
-# No pathlib, just plain strings for file paths.
+# clean_merged.py
+# Input : merged.csv
+# Output: merged_clean.csv
+#
+# NaNs are fully dropped, not filled.
 
 import pandas as pd
 
-# ===================== CONFIG =====================
-IN_PATH  = "merged_long.csv"
+IN_PATH = "merged.csv"
 OUT_PATH = "merged_clean.csv"
-ASSUME_BIN_MINUTES = 30     # bin length in minutes if bin_end missing
-FILL_HABIT_WITH = "Unknown" # placeholder for missing 'habit'
-# ==================================================
+BIN_MIN = 30  # assumed bin length if bin_end is missing
 
-def coerce_numeric_cols(df: pd.DataFrame) -> list:
-    """Heuristically coerce likely numeric columns to numeric dtype."""
-    likely = [c for c in df.columns if any(k in c.lower() for k in [
-        "minute", "second", "count", "number", "risk", "reward",
-        "hours_after", "landing", "arrival", "duration", "rate", "score",
-        "sunset_time", "food_availability"
-    ])]
-
-    # ensure key columns are included
-    for c in ["rat_minutes", "bat_landing_to_food", "seconds_after_rat_arrival",
-              "bat_landing_number", "rat_arrival_number"]:
-        if c in df.columns and c not in likely:
-            likely.append(c)
-
-    for c in likely:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    return sorted(likely)
+def coerce_numeric(df, cols):
+    """Convert to numeric, keep NaN if conversion fails."""
+    for c in cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
 
 def main():
-    # --- 1) Load data ---
-    try:
-        df = pd.read_csv(IN_PATH)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Input file not found: {IN_PATH}")
+    print("Loading merged dataset...")
+    df = pd.read_csv(IN_PATH)
 
-    # --- 2) Parse/standardize datetimes ---
-    for col in ["start_time_parsed", "bin_start", "bin_end"]:
+    # 1) Parse datetime columns
+    for col in ["bin_start", "bin_end", "start_time_parsed"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
 
-    # If bin_end missing or NaT, assume fixed 30-min bins
-    if "bin_end" not in df.columns:
-        df["bin_end"] = pd.NaT
-    missing_end = df["bin_end"].isna()
+    # 2) Ensure bin_end exists
     if "bin_start" in df.columns:
-        df.loc[missing_end, "bin_end"] = df.loc[missing_end, "bin_start"] + pd.Timedelta(minutes=ASSUME_BIN_MINUTES)
+        if "bin_end" not in df.columns:
+            df["bin_end"] = pd.NaT
+        need_end = df["bin_end"].isna()
+        df.loc[need_end, "bin_end"] = df.loc[need_end, "bin_start"] + pd.Timedelta(minutes=BIN_MIN)
 
-    # --- 3) Drop exact duplicate rows ---
+    # 3) Drop exact duplicates
     before = len(df)
     df = df.drop_duplicates()
-    dropped_dupes = before - len(df)
+    print(f"Dropped {before - len(df)} duplicate rows.")
 
-    # --- 4) Keep only rows where start_time is inside its bin ---
-    out_of_range = 0
-    if {"start_time_parsed", "bin_start", "bin_end"}.issubset(df.columns):
-        mask = (df["start_time_parsed"] >= df["bin_start"]) & (df["start_time_parsed"] < df["bin_end"])
-        out_of_range = int((~mask).sum())
-        df = df[mask].copy()
+    # 4) Drop rows where required fields are NaN
+    required_cols = ["bin_start", "rat_minutes", "rat_arrival_number"]
+    existing_cols = [c for c in required_cols if c in df.columns]
 
-    # --- 5) Coerce numeric columns ---
-    numeric_cols = coerce_numeric_cols(df)
+    before_drop = len(df)
+    df = df.dropna(subset=existing_cols)
+    print(f"Dropped {before_drop - len(df)} rows with NaNs in {existing_cols}.")
 
-    # Fill core NaNs for rat and bat data
-    if "rat_minutes" in df.columns:
-        df["rat_minutes"] = df["rat_minutes"].fillna(0)
-    if "bat_landing_to_food" in df.columns:
-        df["bat_landing_to_food"] = df["bat_landing_to_food"].fillna(0)
+    # 5) Coerce to numeric (no filling)
+    numeric_candidates = [
+        "rat_minutes", "rat_arrival_number", "rat_landing_number", 
+        "rat_number", "rat_count", "bat_landing_to_food",
+        "bat_landing_number", "seconds_after_rat_arrival",
+        "risk", "reward"
+    ]
+    coerce_numeric(df, numeric_candidates)
 
-    # Clip negatives to 0
-    for c in numeric_cols:
-        df[c] = df[c].clip(lower=0)
+    # 6) Drop rows where numeric conversion produced NaNs
+    before_drop_numeric = len(df)
+    df = df.dropna(subset=["rat_minutes", "rat_arrival_number"])
+    print(f"Dropped {before_drop_numeric - len(df)} rows due to invalid numeric values.")
 
-    # --- 6) Fill categorical missing values ---
-    if "habit" in df.columns:
-        df["habit"] = df["habit"].fillna(FILL_HABIT_WITH)
-
-    # --- 7) Add helper flags ---
-    if "rat_minutes" in df.columns:
-        df["rat_present"] = (df["rat_minutes"] > 0).astype(int)
-    if "bat_landing_to_food" in df.columns:
-        df["bat_present"] = (df["bat_landing_to_food"] > 0).astype(int)
-
-    # --- 8) Sort chronologically ---
+    # 7) Sort by time
     sort_cols = [c for c in ["bin_start", "start_time_parsed"] if c in df.columns]
     if sort_cols:
         df = df.sort_values(sort_cols).reset_index(drop=True)
 
-    # --- 9) Save cleaned dataset ---
+    # 8) Save cleaned dataset
     df.to_csv(OUT_PATH, index=False)
-
-    # --- 10) Console summary ---
-    print("=== Cleaning Summary ===")
-    print(f"Input rows: {before}")
-    print(f"Dropped duplicates: {dropped_dupes}")
-    print(f"Dropped out-of-range rows: {out_of_range}")
-    print(f"Output rows: {len(df)}")
-    print(f"Numeric columns coerced: {numeric_cols}")
-    print(f"Flags added: rat_present={'rat_present' in df.columns}, bat_present={'bat_present' in df.columns}")
-    print(f"Cleaned file saved as: {OUT_PATH}")
+    print(f"Clean dataset saved as {OUT_PATH}")
+    print(f"Final number of rows: {len(df)}")
 
 if __name__ == "__main__":
     main()
