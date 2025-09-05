@@ -1,126 +1,63 @@
-# rat_vs_bat_analysis.py
-# Streamlined analysis focusing only on relevant graphs and statistics
-
 import pandas as pd
-import matplotlib.pyplot as plt
-from scipy.stats import ttest_ind, pearsonr
+import numpy as np
+from scipy import stats
+import math
 
-# ===========================
-# 1. LOAD THE DATA
-# ===========================
-FILE_PATH = "merged_grouped.csv"
+# Load dataset
+df = pd.read_csv("merged_grouped.csv")
 
-print("Loading dataset...")
-df = pd.read_csv(FILE_PATH)
+# Drop NaNs in required columns
+df = df.dropna(subset=['bat_landing_number', 'rat_present'])
 
-print("\n=== Dataset Info ===")
-print(df.info())
+# Split into groups
+grp_present = df[df['rat_present'] == 1]['bat_landing_number'].values
+grp_absent = df[df['rat_present'] == 0]['bat_landing_number'].values
 
-print("\n=== First 5 Rows ===")
-print(df.head())
+n1, n0 = len(grp_present), len(grp_absent)
+mean1, mean0 = np.mean(grp_present), np.mean(grp_absent)
+var1, var0 = np.var(grp_present, ddof=1), np.var(grp_absent, ddof=1)
 
-# Ensure required columns exist
-required_columns = ["rat_present", "rat_minutes", "bat_landing_number"]
-missing = [col for col in required_columns if col not in df.columns]
-if missing:
-    raise KeyError(f"Missing required columns: {missing}")
+print(f"Group sizes → Rats Present: {n1}, Rats Absent: {n0}")
+print(f"Mean (Rats Present): {mean1:.2f}")
+print(f"Mean (Rats Absent): {mean0:.2f}")
 
-# ===========================
-# 2. SUMMARY STATS
-# ===========================
-print("\n=== Summary Statistics ===")
-print(df.describe())
+# Run standard 2-sample t-test assuming equal variance
+t_stat, p_val = stats.ttest_ind(grp_present, grp_absent, equal_var=True)
 
-# Check proportion of bins with and without rats
-rat_counts = df["rat_present"].value_counts(normalize=True)
-print("\n=== Rat Presence Proportion ===")
-print(rat_counts)
+# Degrees of freedom
+df_ttest = n1 + n0 - 2
 
-# ===========================
-# 3. T-TEST: Bat Activity by Rat Presence
-# ===========================
-print("\n=== T-Test: Bat Activity by Rat Presence ===")
-rat_present_group = df[df['rat_present'] == 1]['bat_landing_number']
-rat_absent_group = df[df['rat_present'] == 0]['bat_landing_number']
+# Calculate pooled standard deviation
+sp = math.sqrt(((n1 - 1)*var1 + (n0 - 1)*var0) / df_ttest)
 
-# Welch's t-test (handles unequal variance)
-t_stat, p_val = ttest_ind(rat_present_group, rat_absent_group, equal_var=False)
+# Standard error of the difference
+se_diff = sp * math.sqrt((1/n1) + (1/n0))
 
+# 95% CI for difference
+mean_diff = mean1 - mean0
+t_crit = stats.t.ppf(0.975, df_ttest)  # two-tailed, alpha = 0.05
+ci_low = mean_diff - t_crit * se_diff
+ci_high = mean_diff + t_crit * se_diff
+
+print("\n=== Two-Sample T-Test Results ===")
 print(f"T-statistic: {t_stat:.4f}")
-print(f"P-value: {p_val:.4f}")
+print(f"Degrees of Freedom: {df_ttest}")
+print(f"P-value: {p_val:.6f}")
+print(f"Mean Difference (Present - Absent): {mean_diff:.3f}")
 
-# Group means
-mean_present = rat_present_group.mean()
-mean_absent = rat_absent_group.mean()
-print(f"\nMean Bat Landings (Rats Present): {mean_present:.2f}")
-print(f"Mean Bat Landings (Rats Absent): {mean_absent:.2f}")
+print(f"95% Confidence Interval: [{ci_low:.3f}, {ci_high:.3f}]")
 
+# Interpretation
 if p_val < 0.05:
-    if mean_present < mean_absent:
-        print("Result: Significant decrease in bat activity when rats are present → Possible avoidance behavior (predator perception).")
-    else:
-        print("Result: Significant increase in bat activity when rats are present → Possible competition or aggressive foraging.")
+    print("Result: Significant difference between groups.")
 else:
-    print("Result: No significant difference → Rats may not strongly affect bat activity.")
+    print("Result: No significant difference between groups.")
 
-# ===========================
-# 4. CORRELATION: Rat Minutes vs Bat Landings
-# ===========================
-print("\n=== Correlation: Rat Minutes vs Bat Landings ===")
-corr, p_corr = pearsonr(df['rat_minutes'], df['bat_landing_number'])
-print(f"Correlation coefficient: {corr:.4f}")
-print(f"P-value: {p_corr:.4f}")
-
-if p_corr < 0.05:
-    if corr < 0:
-        print("Interpretation: Negative correlation → More rats are associated with fewer bats (avoidance behavior).")
-    elif corr > 0:
-        print("Interpretation: Positive correlation → More rats are associated with more bats (competition).")
+if ci_low > 0:
+    print("Bats are more active when rats are present.")
+elif ci_high < 0:
+    print("Bats are less active when rats are present.")
 else:
-    print("Interpretation: No strong relationship between rat and bat activity.")
-
-# ===========================
-# 5. VISUALIZATIONS (Only Relevant Graphs)
-# ===========================
-
-# --- Boxplot: Bat Activity by Rat Presence ---
-plt.figure(figsize=(8,6))
-data = [rat_absent_group, rat_present_group]
-plt.boxplot(
-    data,
-    tick_labels=['Rats Absent', 'Rats Present'],
-    patch_artist=True,
-    boxprops=dict(facecolor='lightblue', color='blue'),
-    medianprops=dict(color='red'),
-    whiskerprops=dict(color='blue'),
-    capprops=dict(color='blue')
-)
-plt.title('Bat Activity by Rat Presence')
-plt.xlabel('Rat Presence')
-plt.ylabel('Bat Landing Number')
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-plt.tight_layout()
-plt.show()
-
-# --- Scatter Plot: Rat Minutes vs Bat Landings ---
-plt.figure(figsize=(8,6))
-plt.scatter(df['rat_minutes'], df['bat_landing_number'],
-            alpha=0.6, color='purple', edgecolors='black')
-plt.title('Rat Minutes vs Bat Landings')
-plt.xlabel('Rat Minutes (per bin)')
-plt.ylabel('Bat Landings (per bin)')
-plt.grid(axis='both', linestyle='--', alpha=0.7)
-plt.tight_layout()
-plt.show()
-
-# ===========================
-# 6. FINAL SUMMARY
-# ===========================
-print("\n=== Final Summary ===")
-print(f"Total Bins: {len(df)}")
-print(f"Rat Absent Bins: {len(rat_absent_group)} ({rat_counts[0]*100:.2f}%)")
-print(f"Rat Present Bins: {len(rat_present_group)} ({rat_counts[1]*100:.2f}%)")
-
-print("\nAnalysis complete! Only relevant graphs and stats were generated.")
+    print("CI includes zero → No clear evidence of change in bat activity.")
 
 
