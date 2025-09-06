@@ -30,6 +30,7 @@ def main():
     print("=== Rat Present Summary ===")
     print(df["rat_present"].value_counts(dropna=False).to_string())
     print(f"Saved -> {OUT_PATH}")
+    
 
 if __name__ == "__main__":
     main()
