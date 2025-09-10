@@ -27,8 +27,8 @@ t_stat, p_val = stats.ttest_ind(no_risk, risk, equal_var=False)
 
 
 print("=== Bat landing to food vs Risk ===")
-print(f"risk=0  → n={stats_no['n']}, mean={stats_no['mean']:.2f}, median={stats_no['median']:.2f}, sd={stats_no['sd']:.2f}")
-print(f"risk=1  → n={stats_yes['n']}, mean={stats_yes['mean']:.2f}, median={stats_yes['median']:.2f}, sd={stats_yes['sd']:.2f}")
+print(f"risk=0  -> n={stats_no['n']}, mean={stats_no['mean']:.2f}, median={stats_no['median']:.2f}, sd={stats_no['sd']:.2f}")
+print(f"risk=1 -> n={stats_yes['n']}, mean={stats_yes['mean']:.2f}, median={stats_yes['median']:.2f}, sd={stats_yes['sd']:.2f}")
 print("\n--- Welch Two-Sample t-test ---")
 print(f"T-statistic: {t_stat:.4f}")
 print(f"P-value    : {p_val:.6f}")
@@ -50,4 +50,5 @@ plt.title("Distribution of bat landing to food time")
 plt.legend()
 plt.tight_layout()
 plt.show()
+
 
