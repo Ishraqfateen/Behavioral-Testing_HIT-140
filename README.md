@@ -8,7 +8,6 @@
   - and lastly dataset 1 & dataset2
     
 > run them chronologically:
-
   -merge.py ( Merges dataset1 & dataset2 and provides a new merged dataset)
   - clean.py ( For cleaning the merged dataset and gives a clean dataset)
   - rat_present_checker.py ( Adds a rat presence column and creates a new dataset)
