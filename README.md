@@ -15,3 +15,6 @@
 > Now you can run the following files in any order:
   -Assignment 2 Merged Dataset analysis .py
   -ratVSbat_analysis.py
+
+> Errors I had found while running the file:
+  -Path location: After downloading the zip file when I extracted it all the files were inside a subfolder withing the main file, this could lead to path error if not approached carefully 
