@@ -1,5 +1,6 @@
 """ Instructions For Running Locally """"
-/n''A2''
+
+''A2''
 > Download this files in a single folder:
   - merge.py
   - clean.py
