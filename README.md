@@ -20,4 +20,21 @@
   - ratVSbat_analysis.py
 
 ''A3''
+> Download all files in a single folder
+> Install all dependencies from requirements.txt
+> run them chronologically:
+Investigation A:
+   - LR model A2.py
+Investigation B:
+   - season_check.py
+   - ftr_engr.py
+   - moonlight.py
+   - pollution.py
+   - pollution_ftr.py
+   - batToRatRatio.py
+
+> Analysis & results of Investigation B (Any order):
+    - visualize.py
+    - corr.py
+    - LRmodel.py
 
