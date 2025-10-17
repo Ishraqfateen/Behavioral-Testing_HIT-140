@@ -23,9 +23,10 @@
 > Download all files in a single folder
 > Install all dependencies from requirements.txt
 > run them chronologically:
-Investigation A:
+
+>Investigation A:
    - LR model A2.py
-Investigation B:
+>Investigation B:
    - season_check.py
    - ftr_engr.py
    - moonlight.py
@@ -34,6 +35,7 @@ Investigation B:
    - batToRatRatio.py
 
 > Analysis & results of Investigation B (Any order):
+> 
     - visualize.py
     - corr.py
     - LRmodel.py
