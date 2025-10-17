@@ -13,7 +13,6 @@ if not Path(INPUT_PATH).exists():
 df = pd.read_csv(INPUT_PATH)
 df = df[df["month_x"] != 6].copy()
 
-# Assign seasons
 def assign_season(m):
     if m in [0, 1, 2]:   # Dec, Jan, Feb
         return 0  # Winter
@@ -28,5 +27,6 @@ df["season_name"] = df["season"].map({0: "Winter", 1: "Spring"})
 
 df.to_csv(OUTPUT_PATH, index=False)
 print(f"\nSaved cleaned dataset with seasons → {OUTPUT_PATH}")
+
 
 
